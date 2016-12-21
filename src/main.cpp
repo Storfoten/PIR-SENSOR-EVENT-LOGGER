@@ -12,10 +12,12 @@
 #include "ToggleButton.h"
 #include "Timer.h"
 
+#define PIR_SENSOR_PIN 4
 
-ToggleButton sensorIn(4);
+ToggleButton sensorIn(PIR_SENSOR_PIN);
 tmElements_t clock;
 Timer _clockTimer(1, 0);
+Timer _minInterval(30,0);
 String events[100];
 unsigned int nrEvents = 0;
 bool _stringComplete = false;
@@ -27,16 +29,9 @@ bool _time = false;
 void setup()
 {
   Serial.begin(9600);
-  pinMode(4, INPUT);
-  pinMode(5, OUTPUT);
-//  clock.Hour = 22;
-//  clock.Minute = 8;
-//  clock.Year = (16 + 2000) - 1970;
-//  clock.Month = 12;
-//  clock.Day = 17;
-//
-//  RTC.write(clock);
+  pinMode(PIR_SENSOR_PIN, INPUT);
   _clockTimer.Start();
+  _minInterval.Start();
 }
 String zeroPad(int val, int length)
 {
@@ -92,10 +87,8 @@ void handleClock()
             }
 #endif
         }
-
         _clockTimer.ResetTimer();
         _clockTimer.Start();
-//        alarm.update(clock.Hour, clock.Minute);
     }
 }
 void handleSerial()
@@ -112,7 +105,8 @@ void handleSerial()
         if(inChar == '\n')
         {
             _stringComplete = true;
-            Serial.println("DONE");
+            Serial.print(ii);
+            Serial.println(" DONE");
             break;
         }
     }
@@ -123,6 +117,7 @@ void handleSerial()
             for(unsigned int i=0;i<nrEvents;i++)
             {
                 Serial.println(events[i]);
+                delay(10);
             }
             Serial.println();
         }
@@ -244,29 +239,34 @@ void loop()
 {
     handleSerial();
     handleClock();
-  // turn the LED on (HIGH is the voltage level)
-    digitalWrite(17,!digitalRead(4));
-//  Serial.println(digitalRead(4));
+    digitalWrite(17,!digitalRead(PIR_SENSOR_PIN));
     sensorIn.update();
 
     if(sensorIn.isButtonPressed())
     {
-        String event = zeroPad(clock.Year+1970,4)
-                + "-" + zeroPad(clock.Month,2)
-                + " " + zeroPad(clock.Day,2)
-                + "-" + zeroPad(clock.Hour,2)
-                + "-" + zeroPad(clock.Minute,2)
-                + "-" + zeroPad(clock.Second,2);
-//        Serial.println(event);
-        events[nrEvents++] = event;
-        if(nrEvents > 98)
-            nrEvents = 0;
-//        for(int i=0;i<nrEvents;i++)
-//        {
-//            Serial.println(events[i]);
-//        }
-//        Serial.println();
+        if(_minInterval.TimeIsUp())
+        {
+            String event = zeroPad(clock.Year+1970,4)
+                    + "-" + zeroPad(clock.Month,2)
+                    + "-" + zeroPad(clock.Day,2)
+                    + " " + zeroPad(clock.Hour,2)
+                    + ":" + zeroPad(clock.Minute,2)
+                    + ":" + zeroPad(clock.Second,2);
+            if(events < 100)
+            {
+                events[nrEvents++] = event;
+            }
+            else
+            {
+                for(unsigned int i=0;i<99;i++)
+                {
+                    events[i] = events[i+1];
+                }
+                events[99] = event;
+            }
+
+            _minInterval.ResetTimer();
+            _minInterval.Start();
+        }
     }
-  // wait for a second
-//  delay(100);
 }
